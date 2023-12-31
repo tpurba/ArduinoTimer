@@ -1,38 +1,68 @@
-// Define variables
-unsigned long previousMillis = 0;  // will store last time Hello was printed
-const long interval = 5000;       // interval at which to print Hello (milliseconds)
+#include <BTAddress.h>
+#include <BTAdvertisedDevice.h>
+#include <BTScan.h>
+#include <BluetoothSerial.h>
+BluetoothSerial SerialBT;
+long interval = 5000;       // interval at which to print Hello (milliseconds)
+unsigned long currentMillis = 0;
+unsigned long wakeUpTime = 0;
+//enumerate
+enum AlarmState{
+  IDLE, 
+  INIT, 
+  ACTIVE,
+  ALARM,
+  ABORT
+};
+AlarmState as;
 int inputValue;
 void setup() {
   // Initialize serial communication
   Serial.begin(9600);
+  as = IDLE;
+  SerialBT.begin("SunRise"); // Bluetooth device name
 }
 
 void loop() {
-  do{
-    if (!Serial.available()) {//waits for user input
-      // Read a line of input until a newline character is received
-      String input = Serial.readStringUntil('\n');
-      // Convert the string to an integer
-      inputValue = input.toInt();//if not an integer then it is 0
-      // Print the received integer back to the Serial Monitor
-      Serial.print("You entered: ");
-      Serial.println(inputValue);
-      
-    }
-  }while(inputValue <= 0);
-  
-  // Get the current time
-  unsigned long currentMillis = millis();
-  
-  // Check if the specified interval has passed
-  if (currentMillis - previousMillis >= interval) {
-    Serial.println("current Millis:" + String(currentMillis));
-    // Save the current time
-    previousMillis = currentMillis;
-
-    // Print "Hello" to the serial monitor
-    Serial.println("Hello");
+  switch (as){
+    case IDLE:
+      //Serial.println("in idle state");
+      if(SerialBT.available()){
+        as = INIT;
+      }
+    break;
+    case INIT:
+      //Serial.println("in init state");
+      setAlarm();
+      as = ACTIVE;
+    break;
+    case ACTIVE:
+      //Serial.println("in active state");
+      currentMillis = millis();
+      if(currentMillis >= wakeUpTime){
+        Serial.println("currentMillis:" + String(currentMillis));
+        Serial.println("wakeUpTime:" + String(wakeUpTime));
+        as = ALARM;
+      }
+    break;
+    case ALARM:
+      //Serial.println("in alarm state");
+      Serial.println("Wake Up!");
+      as = IDLE;
+    break;
+    case ABORT:
+      Serial.println("in abort state");
+    break;
   }
-
-  // Other loop code goes here
+}
+void setAlarm(){
+  //take out and set the time for alarm and the display color on the alarm
+  String message = SerialBT.readStringUntil('\n');
+  Serial.println("Received: " + message);
+  interval = message.toInt();
+  Serial.println("interval: " + String(interval));
+  // Get the current time
+  currentMillis = millis();
+  //set the wake up time
+  wakeUpTime = currentMillis + interval;
 }
